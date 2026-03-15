@@ -135,6 +135,7 @@ export default function MapContainer({ mountains }: MapContainerProps) {
   const [scriptError, setScriptError] = useState(false);
   const [trailData, setTrailData] = useState<TrailData | null>(null);
   const [activeCourse, setActiveCourse] = useState<TrailCourse | null>(null);
+  const [mobileSheetOpen, setMobileSheetOpen] = useState(false);
 
   const clientId = process.env.NEXT_PUBLIC_NAVER_MAP_CLIENT_ID ?? '';
 
@@ -147,6 +148,7 @@ export default function MapContainer({ mountains }: MapContainerProps) {
   const handleMountainSelect = (mountain: Mountain) => {
     setSelectedMountain(mountain);
     setActiveCourse(null);
+    setMobileSheetOpen(true);
   };
 
   const handleBackToList = () => {
@@ -157,6 +159,8 @@ export default function MapContainer({ mountains }: MapContainerProps) {
 
   const handleCourseSelect = useCallback((course: TrailCourse | null) => {
     setActiveCourse((prev) => (prev?.id === course?.id ? null : course));
+    // 모바일: 코스 선택 시 시트 닫아서 지도 표시
+    if (course) setMobileSheetOpen(false);
   }, []);
 
   // 산 선택 시 등산로 데이터 fetch
@@ -211,9 +215,9 @@ export default function MapContainer({ mountains }: MapContainerProps) {
   }, [clientId]);
 
   return (
-    <div className="h-full w-full flex overflow-hidden">
-      {/* 좌측 사이드바 — 항상 표시 */}
-      <div className="flex-shrink-0 w-[340px] bg-white border-r border-gray-200 overflow-hidden shadow-[2px_0_8px_rgba(0,0,0,0.06)]">
+    <div className="h-full w-full flex flex-col md:flex-row overflow-hidden">
+      {/* 데스크탑 좌측 사이드바 (md 이상에서만 표시) */}
+      <div className="hidden md:flex flex-shrink-0 w-[340px] bg-white border-r border-gray-200 overflow-hidden shadow-[2px_0_8px_rgba(0,0,0,0.06)]">
         <MountainSidebar
           mountains={mountains}
           selectedMountain={selectedMountain}
@@ -225,8 +229,8 @@ export default function MapContainer({ mountains }: MapContainerProps) {
         />
       </div>
 
-      {/* 우측 지도 영역 (고도 그래프는 오버레이) */}
-      <div className="flex-1 relative min-w-0">
+      {/* 지도 영역 */}
+      <div className="flex-1 relative min-w-0 min-h-0">
         {scriptError ? (
           <div className="w-full h-full flex items-center justify-center bg-gray-100">
             <div className="text-center px-6">
@@ -260,6 +264,38 @@ export default function MapContainer({ mountains }: MapContainerProps) {
         {activeCourse && activeCourse.segments.flatMap(s => s).some(p => p.ele !== 0) && (
           <ElevationChart course={activeCourse} onClose={() => setActiveCourse(null)} />
         )}
+
+        {/* 모바일 하단 시트 (md 미만에서만 표시) */}
+        <div
+          className={`md:hidden absolute inset-x-0 bottom-0 z-30 bg-white rounded-t-2xl shadow-[0_-4px_16px_rgba(0,0,0,0.15)] transition-transform duration-300 ease-in-out ${
+            mobileSheetOpen ? 'translate-y-0' : 'translate-y-[calc(100%-52px)]'
+          }`}
+          style={{ height: '68vh' }}
+        >
+          {/* 핸들 탭 */}
+          <button
+            className="w-full flex flex-col items-center pt-2.5 pb-1.5 focus:outline-none"
+            onClick={() => setMobileSheetOpen(v => !v)}
+            aria-label={mobileSheetOpen ? '목록 접기' : '목록 펼치기'}
+          >
+            <div className="w-10 h-1 bg-gray-300 rounded-full mb-1" />
+            <span className="text-[11px] text-gray-400 font-medium">
+              {mobileSheetOpen ? '접기' : `🏔️ ${selectedMountain ? selectedMountain.name : '산 목록 보기'}`}
+            </span>
+          </button>
+          {/* 사이드바 콘텐츠 */}
+          <div className="h-[calc(100%-40px)] overflow-hidden">
+            <MountainSidebar
+              mountains={mountains}
+              selectedMountain={selectedMountain}
+              onMountainSelect={handleMountainSelect}
+              onBack={handleBackToList}
+              trailData={trailData}
+              activeCourse={activeCourse}
+              onCourseSelect={handleCourseSelect}
+            />
+          </div>
+        </div>
       </div>
     </div>
   );

@@ -56,13 +56,17 @@ function MountainList({
   return (
     <div className="flex flex-col h-full">
       {/* 사이드바 헤더 */}
-      <div className="flex-shrink-0 bg-green-800 text-white px-5 py-4">
-        <div className="flex items-center gap-2.5 mb-3">
+      <div className="flex-shrink-0 bg-green-800 text-white px-5 py-3 md:py-4">
+        <div className="hidden md:flex items-center gap-2.5 mb-3">
           <span className="text-2xl">🏔️</span>
           <div>
             <h2 className="font-extrabold text-base leading-tight">서울 등산로</h2>
             <p className="text-green-300 text-xs mt-0.5">목록 클릭 또는 지도 마커 선택</p>
           </div>
+        </div>
+        <div className="flex items-center gap-2 mb-2 md:hidden">
+          <span className="text-base">🏔️</span>
+          <h2 className="font-extrabold text-sm leading-tight">서울 등산로</h2>
         </div>
         {/* 검색창 */}
         <div className="relative">

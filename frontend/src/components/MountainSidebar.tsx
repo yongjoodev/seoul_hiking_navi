@@ -213,12 +213,13 @@ function MountainDetail({
               <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">주요 특징</h3>
               <div className="flex flex-wrap gap-1.5">
                 {mountain.features.map((feature) => (
-                  <span
+                  <button
                     key={feature}
-                    className="bg-green-50 text-green-800 text-xs font-medium px-2.5 py-1 rounded-full border border-green-100"
+                    onClick={() => window.open(`https://search.naver.com/search.naver?query=${encodeURIComponent(mountain.name + ' ' + feature)}`, '_blank', 'noopener,noreferrer')}
+                    className="bg-green-50 text-green-800 text-xs font-medium px-2.5 py-1 rounded-full border border-green-100 hover:bg-green-100 hover:border-green-300 hover:text-green-900 active:bg-green-200 transition-colors cursor-pointer"
                   >
                     {feature}
-                  </span>
+                  </button>
                 ))}
               </div>
             </div>

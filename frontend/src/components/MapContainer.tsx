@@ -13,94 +13,113 @@ function ElevationChart({ course, onClose }: { course: TrailCourse; onClose: () 
     const canvas = canvasRef.current;
     if (!canvas) return;
 
-    // 실제 표시 크기에 맞춰 canvas 해상도 설정 (모바일 선명도)
-    const rect = canvas.getBoundingClientRect();
-    const dpr = window.devicePixelRatio || 1;
-    canvas.width = rect.width * dpr;
-    canvas.height = rect.height * dpr;
+    const draw = (W: number, H: number) => {
+      const dpr = window.devicePixelRatio || 1;
+      canvas.width = W * dpr;
+      canvas.height = H * dpr;
 
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-    ctx.scale(dpr, dpr);
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
+      ctx.scale(dpr, dpr);
 
-    const points = course.segments.flatMap(s => s);
-    if (points.length < 2) return;
-    if (points.every(p => p.ele === 0)) return;
+      const points = course.segments.flatMap(s => s);
+      if (points.length < 2) return;
+      if (points.every(p => p.ele === 0)) return;
 
-    const eles = points.map(p => p.ele);
-    const minEle = Math.min(...eles);
-    const maxEle = Math.max(...eles);
-    const eleRange = maxEle - minEle || 1;
+      const eles = points.map(p => p.ele);
+      const minEle = Math.min(...eles);
+      const maxEle = Math.max(...eles);
+      const eleRange = maxEle - minEle || 1;
 
-    const W = rect.width;
-    const H = rect.height;
-    const padL = 44, padR = 12, padT = 10, padB = 24;
-    const chartW = W - padL - padR;
-    const chartH = H - padT - padB;
+      const padL = 44, padR = 12, padT = 10, padB = 24;
+      const chartW = W - padL - padR;
+      const chartH = H - padT - padB;
 
-    ctx.clearRect(0, 0, W, H);
+      ctx.clearRect(0, 0, W, H);
 
-    // 배경
-    ctx.fillStyle = '#f8fafc';
-    ctx.fillRect(0, 0, W, H);
+      // 배경
+      ctx.fillStyle = '#f8fafc';
+      ctx.fillRect(0, 0, W, H);
 
-    // 격자선
-    ctx.strokeStyle = '#e2e8f0';
-    ctx.lineWidth = 1;
-    const gridLines = 4;
-    for (let i = 0; i <= gridLines; i++) {
-      const y = padT + (chartH / gridLines) * i;
+      // 격자선
+      ctx.strokeStyle = '#e2e8f0';
+      ctx.lineWidth = 1;
+      const gridLines = 4;
+      for (let i = 0; i <= gridLines; i++) {
+        const y = padT + (chartH / gridLines) * i;
+        ctx.beginPath();
+        ctx.moveTo(padL, y);
+        ctx.lineTo(padL + chartW, y);
+        ctx.stroke();
+
+        const eleVal = maxEle - (eleRange / gridLines) * i;
+        ctx.fillStyle = '#94a3b8';
+        ctx.font = '10px sans-serif';
+        ctx.textAlign = 'right';
+        ctx.fillText(`${Math.round(eleVal)}m`, padL - 4, y + 3);
+      }
+
+      // 그라디언트 영역
+      const grad = ctx.createLinearGradient(0, padT, 0, padT + chartH);
+      grad.addColorStop(0, 'rgba(34,197,94,0.5)');
+      grad.addColorStop(1, 'rgba(34,197,94,0.03)');
+
       ctx.beginPath();
-      ctx.moveTo(padL, y);
-      ctx.lineTo(padL + chartW, y);
+      points.forEach((p, i) => {
+        const x = padL + (i / (points.length - 1)) * chartW;
+        const y = padT + chartH - ((p.ele - minEle) / eleRange) * chartH;
+        i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+      });
+      ctx.lineTo(padL + chartW, padT + chartH);
+      ctx.lineTo(padL, padT + chartH);
+      ctx.closePath();
+      ctx.fillStyle = grad;
+      ctx.fill();
+
+      // 라인
+      ctx.beginPath();
+      ctx.strokeStyle = '#16a34a';
+      ctx.lineWidth = 2;
+      ctx.lineJoin = 'round';
+      points.forEach((p, i) => {
+        const x = padL + (i / (points.length - 1)) * chartW;
+        const y = padT + chartH - ((p.ele - minEle) / eleRange) * chartH;
+        i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+      });
       ctx.stroke();
 
-      const eleVal = maxEle - (eleRange / gridLines) * i;
+      // 거리 라벨
       ctx.fillStyle = '#94a3b8';
       ctx.font = '10px sans-serif';
-      ctx.textAlign = 'right';
-      ctx.fillText(`${Math.round(eleVal)}m`, padL - 4, y + 3);
+      ctx.textAlign = 'center';
+      const distLabels = Math.min(5, Math.floor(chartW / 50));
+      for (let i = 0; i <= distLabels; i++) {
+        const x = padL + (chartW / distLabels) * i;
+        const dist = (course.distance / distLabels) * i;
+        ctx.fillText(`${dist.toFixed(1)}km`, x, H - 6);
+      }
+    };
+
+    // ResizeObserver: canvas 크기가 실제로 확정된 순간 그래프를 그림
+    // 첫 접속 시 absolute 컨테이너가 layout 완료 전일 때 width=0 문제 방지
+    const observer = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        const { width, height } = entry.contentRect;
+        if (width > 0 && height > 0) {
+          draw(width, height);
+        }
+      }
+    });
+
+    observer.observe(canvas);
+
+    // 이미 크기가 있는 경우(2번째 이후 선택) 즉시 그림
+    const rect = canvas.getBoundingClientRect();
+    if (rect.width > 0 && rect.height > 0) {
+      draw(rect.width, rect.height);
     }
 
-    // 그라디언트 영역
-    const grad = ctx.createLinearGradient(0, padT, 0, padT + chartH);
-    grad.addColorStop(0, 'rgba(34,197,94,0.5)');
-    grad.addColorStop(1, 'rgba(34,197,94,0.03)');
-
-    ctx.beginPath();
-    points.forEach((p, i) => {
-      const x = padL + (i / (points.length - 1)) * chartW;
-      const y = padT + chartH - ((p.ele - minEle) / eleRange) * chartH;
-      i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
-    });
-    ctx.lineTo(padL + chartW, padT + chartH);
-    ctx.lineTo(padL, padT + chartH);
-    ctx.closePath();
-    ctx.fillStyle = grad;
-    ctx.fill();
-
-    // 라인
-    ctx.beginPath();
-    ctx.strokeStyle = '#16a34a';
-    ctx.lineWidth = 2;
-    ctx.lineJoin = 'round';
-    points.forEach((p, i) => {
-      const x = padL + (i / (points.length - 1)) * chartW;
-      const y = padT + chartH - ((p.ele - minEle) / eleRange) * chartH;
-      i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
-    });
-    ctx.stroke();
-
-    // 거리 라벨
-    ctx.fillStyle = '#94a3b8';
-    ctx.font = '10px sans-serif';
-    ctx.textAlign = 'center';
-    const distLabels = Math.min(5, Math.floor(chartW / 50));
-    for (let i = 0; i <= distLabels; i++) {
-      const x = padL + (chartW / distLabels) * i;
-      const dist = (course.distance / distLabels) * i;
-      ctx.fillText(`${dist.toFixed(1)}km`, x, H - 6);
-    }
+    return () => observer.disconnect();
   }, [course]);
 
   const all = course.segments.flatMap(s => s);

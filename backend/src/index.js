@@ -10,6 +10,7 @@ const PORT = process.env.PORT || 3001;
 const allowedOrigins = [
   'http://localhost:3000',
   'http://localhost:3001',
+  'https://seoulhikingnavi.vercel.app',
 ];
 
 app.use(

@@ -22,11 +22,20 @@ export interface TrailPoint {
   ele: number;
 }
 
+export interface Waypoint {
+  lat: number;
+  lng: number;
+  ele: number;
+  name: string;
+  category: string;
+}
+
 export interface TrailCourse {
   id: number;
   name: string;
   distance: number;
   segments: TrailPoint[][];
+  waypoints?: Waypoint[];
   difficulty?: string;
   uphillTime?: number;
   downhillTime?: number;

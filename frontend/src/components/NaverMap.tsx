@@ -166,9 +166,9 @@ export default function NaverMap({ mountains, selectedMountain, onMountainClick,
     }
   }, [selectedMountain, updateMarkerIcon]);
 
-  // 활성 코스 polyline 렌더링
+  // 활성 코스 polyline + waypoint 마커 렌더링
   useEffect(() => {
-    // 기존 polyline 및 시작/종료 마커 제거
+    // 기존 polyline 및 마커 제거
     polylinesRef.current.forEach(pl => pl.setMap(null));
     polylinesRef.current = [];
     trailMarkersRef.current.forEach(m => m.setMap(null));
@@ -203,15 +203,7 @@ export default function NaverMap({ mountains, selectedMountain, onMountainClick,
       position: new naver.maps.LatLng(startPoint.lat, startPoint.lng),
       map: mapInstanceRef.current,
       icon: {
-        content: `<div style="
-          width:28px;height:28px;
-          background:#16a34a;
-          border:3px solid #fff;
-          border-radius:50%;
-          display:flex;align-items:center;justify-content:center;
-          box-shadow:0 2px 6px rgba(0,0,0,0.4);
-          font-size:13px;line-height:1;
-        ">🚶</div>`,
+        content: `<div style="width:28px;height:28px;background:#16a34a;border:3px solid #fff;border-radius:50%;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(0,0,0,0.4);font-size:13px;line-height:1;">🚶</div>`,
         anchor: new naver.maps.Point(14, 14),
       },
     });
@@ -224,19 +216,108 @@ export default function NaverMap({ mountains, selectedMountain, onMountainClick,
       position: new naver.maps.LatLng(endPoint.lat, endPoint.lng),
       map: mapInstanceRef.current,
       icon: {
-        content: `<div style="
-          width:28px;height:28px;
-          background:#dc2626;
-          border:3px solid #fff;
-          border-radius:50%;
-          display:flex;align-items:center;justify-content:center;
-          box-shadow:0 2px 6px rgba(0,0,0,0.4);
-          font-size:13px;line-height:1;
-        ">🏁</div>`,
+        content: `<div style="width:28px;height:28px;background:#dc2626;border:3px solid #fff;border-radius:50%;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(0,0,0,0.4);font-size:13px;line-height:1;">🏁</div>`,
         anchor: new naver.maps.Point(14, 14),
       },
     });
     trailMarkersRef.current.push(endMarker);
+
+    // 웨이포인트 마커 렌더링
+    const waypointInfoWindows: naver.maps.InfoWindow[] = [];
+    let openInfoWindow: naver.maps.InfoWindow | null = null;
+
+    const CATEGORY_ICON: Record<string, string> = {
+      TRANS: '🚏',    // 교통/들머리
+      SCENERY: '🌿',  // 경관
+      SIGN: '🪧',     // 이정표
+      REST: '🪑',     // 쉼터
+      VIEW: '🔭',     // 전망대
+      PHOTO: '📷',    // 포토존
+      SUMMIT: '⛰️',  // 정상
+      WATER: '💧',    // 약수
+      FOOD: '🍱',     // 식당
+      PARKING: '🅿️', // 주차장
+      TOILET: '🚻',   // 화장실
+    };
+
+    (activeCourse.waypoints || []).forEach((wpt) => {
+      const icon = CATEGORY_ICON[wpt.category] || '📍';
+      const eleText = wpt.ele > 0 ? `<span style="color:#64748b;font-size:10px;"> · ${Math.round(wpt.ele)}m</span>` : '';
+
+      const marker = new naver.maps.Marker({
+        position: new naver.maps.LatLng(wpt.lat, wpt.lng),
+        map: mapInstanceRef.current!,
+        icon: {
+          content: `<div style="
+            display:flex;flex-direction:column;align-items:center;cursor:pointer;
+          ">
+            <div style="
+              width:22px;height:22px;
+              background:#fff;
+              border:2px solid #3b82f6;
+              border-radius:50%;
+              display:flex;align-items:center;justify-content:center;
+              box-shadow:0 1px 4px rgba(0,0,0,0.3);
+              font-size:11px;line-height:1;
+            ">${icon}</div>
+            <div style="
+              background:#1e40af;
+              color:#fff;
+              font-size:9px;
+              font-weight:600;
+              padding:1px 5px;
+              border-radius:6px;
+              margin-top:2px;
+              white-space:nowrap;
+              max-width:80px;
+              overflow:hidden;
+              text-overflow:ellipsis;
+              box-shadow:0 1px 3px rgba(0,0,0,0.3);
+              font-family:'Noto Sans KR',sans-serif;
+            ">${wpt.name}</div>
+          </div>`,
+          anchor: new naver.maps.Point(11, 22),
+        },
+        zIndex: 5,
+      });
+
+      const infoWindow = new naver.maps.InfoWindow({
+        content: `<div style="
+          padding:8px 12px;
+          font-family:'Noto Sans KR',sans-serif;
+          min-width:120px;
+          max-width:200px;
+        ">
+          <div style="font-weight:700;font-size:13px;color:#1e293b;margin-bottom:3px;">
+            ${icon} ${wpt.name}
+          </div>
+          <div style="font-size:11px;color:#64748b;">
+            ${wpt.category ? `유형: ${wpt.category}` : ''}${eleText}
+          </div>
+        </div>`,
+        borderWidth: 1,
+        borderColor: '#e2e8f0',
+        anchorSize: new naver.maps.Size(8, 8),
+        backgroundColor: '#fff',
+        pixelOffset: new naver.maps.Point(0, -5),
+      });
+
+      waypointInfoWindows.push(infoWindow);
+
+      naver.maps.Event.addListener(marker, 'click', () => {
+        if (openInfoWindow) {
+          openInfoWindow.close();
+          if (openInfoWindow === infoWindow) {
+            openInfoWindow = null;
+            return;
+          }
+        }
+        infoWindow.open(mapInstanceRef.current!, marker);
+        openInfoWindow = infoWindow;
+      });
+
+      trailMarkersRef.current.push(marker);
+    });
 
     // 경로 전체가 보이도록 fitBounds
     const lats = allPoints.map(p => p.lat());
@@ -248,6 +329,19 @@ export default function NaverMap({ mountains, selectedMountain, onMountainClick,
         top: 60, right: 60, bottom: 60, left: 60,
       });
     }, 200);
+
+    // 지도 클릭 시 열린 InfoWindow 닫기
+    const mapClickListener = naver.maps.Event.addListener(mapInstanceRef.current, 'click', () => {
+      if (openInfoWindow) {
+        openInfoWindow.close();
+        openInfoWindow = null;
+      }
+    });
+
+    return () => {
+      naver.maps.Event.removeListener(mapClickListener);
+      waypointInfoWindows.forEach(iw => iw.close());
+    };
   }, [activeCourse]);
 
   return (

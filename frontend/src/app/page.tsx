@@ -1,6 +1,8 @@
 import MapContainer from '@/components/MapContainer';
 import type { Mountain, MountainsApiResponse } from '@/types';
 
+export const dynamic = 'force-dynamic';
+
 async function getMountains(): Promise<Mountain[]> {
   const backendUrl = process.env.BACKEND_URL ?? 'http://localhost:3001';
 

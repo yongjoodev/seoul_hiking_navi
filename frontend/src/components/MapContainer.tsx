@@ -138,6 +138,12 @@ export default function MapContainer({ mountains }: MapContainerProps) {
 
   const clientId = process.env.NEXT_PUBLIC_NAVER_MAP_CLIENT_ID ?? '';
 
+  // 백엔드 워밍업: 앱 로드 시 슬립 상태인 Render 인스턴스를 미리 깨움
+  useEffect(() => {
+    const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL ?? 'http://localhost:3001';
+    fetch(`${backendUrl}/api/mountains`).catch(() => {});
+  }, []);
+
   const handleMountainSelect = (mountain: Mountain) => {
     setSelectedMountain(mountain);
     setActiveCourse(null);

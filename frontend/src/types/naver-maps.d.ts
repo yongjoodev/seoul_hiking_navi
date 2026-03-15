@@ -112,10 +112,14 @@ declare namespace naver {
     interface InfoWindowOptions {
       content?: string | HTMLElement;
       borderWidth?: number;
+      borderColor?: string;
       disableAnchor?: boolean;
       backgroundColor?: string;
+      anchorSize?: Size;
+      anchorColor?: string;
       pixelOffset?: Point;
       zIndex?: number;
+      maxWidth?: number;
     }
 
     interface PolylineMouseEvent {

@@ -9,6 +9,7 @@ declare namespace naver {
       setCenter(latlng: LatLng): void;
       getCenter(): LatLng;
       fitBounds(bounds: LatLngBounds, margin?: number | { top?: number; right?: number; bottom?: number; left?: number }): void;
+      morph(latlng: LatLng, zoom?: number, transitionOptions?: TransitionOptions): void;
       destroy(): void;
     }
 

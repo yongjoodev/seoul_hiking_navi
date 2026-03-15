@@ -12,8 +12,16 @@ function ElevationChart({ course, onClose }: { course: TrailCourse; onClose: () 
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
+
+    // 실제 표시 크기에 맞춰 canvas 해상도 설정 (모바일 선명도)
+    const rect = canvas.getBoundingClientRect();
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = rect.width * dpr;
+    canvas.height = rect.height * dpr;
+
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
+    ctx.scale(dpr, dpr);
 
     const points = course.segments.flatMap(s => s);
     if (points.length < 2) return;
@@ -24,9 +32,9 @@ function ElevationChart({ course, onClose }: { course: TrailCourse; onClose: () 
     const maxEle = Math.max(...eles);
     const eleRange = maxEle - minEle || 1;
 
-    const W = canvas.width;
-    const H = canvas.height;
-    const padL = 48, padR = 16, padT = 12, padB = 28;
+    const W = rect.width;
+    const H = rect.height;
+    const padL = 44, padR = 12, padT = 10, padB = 24;
     const chartW = W - padL - padR;
     const chartH = H - padT - padB;
 
@@ -87,7 +95,7 @@ function ElevationChart({ course, onClose }: { course: TrailCourse; onClose: () 
     ctx.fillStyle = '#94a3b8';
     ctx.font = '10px sans-serif';
     ctx.textAlign = 'center';
-    const distLabels = 5;
+    const distLabels = Math.min(5, Math.floor(chartW / 50));
     for (let i = 0; i <= distLabels; i++) {
       const x = padL + (chartW / distLabels) * i;
       const dist = (course.distance / distLabels) * i;
@@ -95,20 +103,19 @@ function ElevationChart({ course, onClose }: { course: TrailCourse; onClose: () 
     }
   }, [course]);
 
+  const all = course.segments.flatMap(s => s);
+  const hasEle = all.some(p => p.ele !== 0);
+
   return (
-    <div className="absolute bottom-0 left-0 right-0 z-20 bg-white/96 backdrop-blur-sm border-t border-gray-200 shadow-[0_-4px_12px_rgba(0,0,0,0.08)] px-3 pt-2 pb-2">
+    <div className="absolute bottom-0 left-0 right-0 z-40 bg-white/96 backdrop-blur-sm border-t border-gray-200 shadow-[0_-4px_12px_rgba(0,0,0,0.12)] px-3 pt-2 pb-2">
       <div className="flex items-center justify-between mb-1">
-        <span className="text-xs font-semibold text-gray-600">📈 고도 프로필 — {course.name}</span>
-        <div className="flex items-center gap-3">
-          {(() => {
-            const all = course.segments.flatMap(s => s);
-            const hasEle = all.some(p => p.ele !== 0);
-            return hasEle ? (
-              <span className="text-xs text-gray-400">
-                {Math.round(Math.min(...all.map(p => p.ele)))}m ~ {Math.round(Math.max(...all.map(p => p.ele)))}m
-              </span>
-            ) : null;
-          })()}
+        <span className="text-xs font-semibold text-gray-600 truncate mr-2">📈 {course.name}</span>
+        <div className="flex items-center gap-2 flex-shrink-0">
+          {hasEle && (
+            <span className="text-xs text-gray-400 hidden sm:inline">
+              {Math.round(Math.min(...all.map(p => p.ele)))}m ~ {Math.round(Math.max(...all.map(p => p.ele)))}m
+            </span>
+          )}
           <button
             onClick={onClose}
             className="w-6 h-6 flex items-center justify-center rounded-full hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors"
@@ -120,7 +127,7 @@ function ElevationChart({ course, onClose }: { course: TrailCourse; onClose: () 
           </button>
         </div>
       </div>
-      <canvas ref={canvasRef} width={800} height={110} className="w-full h-[110px] rounded" />
+      <canvas ref={canvasRef} className="w-full h-[100px] rounded" style={{ display: 'block' }} />
     </div>
   );
 }

@@ -242,8 +242,8 @@ export default function MapContainer({ mountains }: MapContainerProps) {
 
   return (
     <div className="h-full w-full flex flex-col md:flex-row overflow-hidden">
-      {/* 데스크탑 좌측 사이드바 (md 이상에서만 표시) */}
-      <div className="hidden md:flex flex-shrink-0 w-[340px] bg-white border-r border-gray-200 overflow-hidden shadow-[2px_0_8px_rgba(0,0,0,0.06)]">
+      {/* 태블릿/데스크탑 좌측 사이드바 (md 이상에서만 표시) */}
+      <div className="hidden md:flex flex-shrink-0 w-[260px] lg:w-[340px] bg-white border-r border-gray-200 overflow-hidden shadow-[2px_0_8px_rgba(0,0,0,0.06)]">
         <MountainSidebar
           mountains={mountains}
           selectedMountain={selectedMountain}

@@ -27,7 +27,7 @@ export default async function Home() {
   const mountains = await getMountains();
 
   return (
-    <main className="h-screen flex flex-col bg-gray-50">
+    <main className="h-svh flex flex-col bg-gray-50">
       {/* 헤더 */}
       <header className="flex-shrink-0 bg-green-800 text-white px-5 py-3 flex items-center shadow-md z-40 relative">
         <div className="flex items-center gap-3">

@@ -419,7 +419,7 @@ export default function NaverMap({ mountains, selectedMountain, onMountainClick,
       <div ref={mapRef} className="w-full h-full" />
 
       {/* 현재 위치 버튼 — 지도 우하단 */}
-      <div className="absolute bottom-8 right-3 z-20 flex flex-col items-end gap-2">
+      <div className="absolute bottom-14 md:bottom-8 right-3 z-20 flex flex-col items-end gap-2" style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}>
         {gpsError && (
           <div className="bg-red-500 text-white text-xs font-medium px-3 py-1.5 rounded-lg shadow-md whitespace-nowrap">
             {gpsError}

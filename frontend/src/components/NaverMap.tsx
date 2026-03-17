@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useCallback } from 'react';
+import { useEffect, useRef, useCallback, useState } from 'react';
 import type { Mountain, TrailCourse } from '@/types';
 
 interface NaverMapProps {
@@ -71,8 +71,65 @@ export default function NaverMap({ mountains, selectedMountain, onMountainClick,
   const polylinesRef = useRef<naver.maps.Polyline[]>([]);
   const trailMarkersRef = useRef<naver.maps.Marker[]>([]);
   const onMountainClickRef = useRef(onMountainClick);
+  const myLocationMarkerRef = useRef<naver.maps.Marker | null>(null);
+  const [gpsLoading, setGpsLoading] = useState(false);
+  const [gpsError, setGpsError] = useState<string | null>(null);
 
   useEffect(() => { onMountainClickRef.current = onMountainClick; });
+
+  const handleMyLocation = useCallback(() => {
+    if (!navigator.geolocation) {
+      setGpsError('이 브라우저는 GPS를 지원하지 않습니다.');
+      return;
+    }
+    setGpsLoading(true);
+    setGpsError(null);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setGpsLoading(false);
+        const { latitude, longitude } = pos.coords;
+        const map = mapInstanceRef.current;
+        if (!map) return;
+
+        // 기존 마커 제거
+        if (myLocationMarkerRef.current) {
+          myLocationMarkerRef.current.setMap(null);
+        }
+
+        const marker = new naver.maps.Marker({
+          position: new naver.maps.LatLng(latitude, longitude),
+          map,
+          icon: {
+            content: `<div style="
+              width:18px;height:18px;
+              background:#2563eb;
+              border:3px solid #fff;
+              border-radius:50%;
+              box-shadow:0 0 0 4px rgba(37,99,235,0.25),0 2px 6px rgba(0,0,0,0.3);
+            "></div>`,
+            anchor: new naver.maps.Point(9, 9),
+          },
+          zIndex: 10,
+        });
+        myLocationMarkerRef.current = marker;
+
+        map.morph(new naver.maps.LatLng(latitude, longitude), 15, {
+          duration: 500,
+          easing: 'easeOutCubic',
+        });
+      },
+      (err) => {
+        setGpsLoading(false);
+        if (err.code === err.PERMISSION_DENIED) {
+          setGpsError('위치 권한이 거부되었습니다.');
+        } else {
+          setGpsError('위치를 가져올 수 없습니다.');
+        }
+        setTimeout(() => setGpsError(null), 3000);
+      },
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
+  }, []);
 
   const updateMarkerIcon = useCallback((id: number, isSelected: boolean) => {
     const marker = markersRef.current.get(id);
@@ -239,6 +296,19 @@ export default function NaverMap({ mountains, selectedMountain, onMountainClick,
       PARKING: '🅿️', // 주차장
       TOILET: '🚻',   // 화장실
     };
+    const CATEGORY_LABEL: Record<string, string> = {
+      TRANS: '교통/들머리',
+      SCENERY: '경관',
+      SIGN: '이정표',
+      REST: '쉼터',
+      VIEW: '전망대',
+      PHOTO: '포토존',
+      SUMMIT: '정상',
+      WATER: '약수터',
+      FOOD: '식당',
+      PARKING: '주차장',
+      TOILET: '화장실',
+    };
 
     (activeCourse.waypoints || []).forEach((wpt) => {
       const icon = CATEGORY_ICON[wpt.category] || '📍';
@@ -292,7 +362,7 @@ export default function NaverMap({ mountains, selectedMountain, onMountainClick,
             ${icon} ${wpt.name}
           </div>
           <div style="font-size:11px;color:#64748b;">
-            ${wpt.category ? `유형: ${wpt.category}` : ''}${eleText}
+            ${wpt.category ? `유형: ${CATEGORY_LABEL[wpt.category] ?? wpt.category}` : ''}${eleText}
           </div>
         </div>`,
         borderWidth: 1,
@@ -345,6 +415,37 @@ export default function NaverMap({ mountains, selectedMountain, onMountainClick,
   }, [activeCourse]);
 
   return (
-    <div ref={mapRef} className="w-full h-full" />
+    <div className="relative w-full h-full">
+      <div ref={mapRef} className="w-full h-full" />
+
+      {/* 현재 위치 버튼 — 지도 우하단 */}
+      <div className="absolute bottom-8 right-3 z-20 flex flex-col items-end gap-2">
+        {gpsError && (
+          <div className="bg-red-500 text-white text-xs font-medium px-3 py-1.5 rounded-lg shadow-md whitespace-nowrap">
+            {gpsError}
+          </div>
+        )}
+        <button
+          onClick={handleMyLocation}
+          disabled={gpsLoading}
+          className="w-10 h-10 bg-white rounded-full shadow-[0_2px_8px_rgba(0,0,0,0.2)] flex items-center justify-center hover:bg-gray-50 active:bg-gray-100 transition-colors disabled:opacity-60"
+          aria-label="현재 위치"
+          title="현재 위치"
+        >
+          {gpsLoading ? (
+            <svg className="w-5 h-5 text-blue-500 animate-spin" fill="none" viewBox="0 0 24 24">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3"/>
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"/>
+            </svg>
+          ) : (
+            <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <circle cx="12" cy="12" r="3" strokeWidth="2"/>
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 2v3M12 19v3M2 12h3M19 12h3"/>
+              <circle cx="12" cy="12" r="8" strokeWidth="1.5" strokeDasharray="3 2"/>
+            </svg>
+          )}
+        </button>
+      </div>
+    </div>
   );
 }

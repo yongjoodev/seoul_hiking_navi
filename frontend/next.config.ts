@@ -5,6 +5,9 @@ const nextConfig: NextConfig = {
   env: {
     BACKEND_URL: process.env.BACKEND_URL ?? "http://localhost:3001",
   },
+  turbopack: {
+    root: __dirname,
+  },
 };
 
 export default nextConfig;

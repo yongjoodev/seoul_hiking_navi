@@ -32,11 +32,34 @@ function haversineDistance(a, b) {
   return R * 2 * Math.asin(Math.sqrt(h));
 }
 
+// CDATA 포함 xml2js 파싱값 → 문자열 추출
+function cdataText(field) {
+  if (!field) return '';
+  const v = Array.isArray(field) ? field[0] : field;
+  if (v && typeof v === 'object' && v._) return String(v._).trim();
+  return String(v || '').trim();
+}
+
+// GPX sym/type 값 → 프론트엔드 카테고리 코드 변환
+function symToCategory(sym, type) {
+  const s = sym.toLowerCase();
+  if (s.includes('summit')) return 'SUMMIT';
+  if (s.includes('trail') || s.includes('trailhead') || type === '출발점') return 'TRANS';
+  if (s.includes('parking')) return 'PARKING';
+  if (s.includes('restroom') || s.includes('toilet')) return 'TOILET';
+  if (s.includes('water')) return 'WATER';
+  if (s.includes('restaurant') || s.includes('food')) return 'FOOD';
+  if (s.includes('scenic') || s.includes('viewpoint')) return 'VIEW';
+  if (type === '정상') return 'SUMMIT';
+  return 'SIGN';
+}
+
 async function parseGpxFile(filePath) {
   const xml = fs.readFileSync(filePath, 'utf8');
-  const parsed = await xml2js.parseStringPromise(xml);
+  const parsed = await xml2js.parseStringPromise(xml, { trim: true });
   const gpx = parsed.gpx;
 
+  // 트랙 세그먼트 파싱
   const segments = [];
   const trkList = gpx.trk || [];
 
@@ -54,6 +77,25 @@ async function parseGpxFile(filePath) {
     });
   });
 
+  // 웨이포인트(wpt) 파싱
+  const waypoints = (gpx.wpt || []).map((wpt) => {
+    const lat = parseFloat(wpt.$.lat);
+    const lng = parseFloat(wpt.$.lon);
+    const ele = wpt.ele ? parseFloat(parseFloat(wpt.ele[0]).toFixed(1)) : 0;
+    const name = cdataText(wpt.name);
+    const sym = cdataText(wpt.sym);
+    const type = cdataText(wpt.type);
+    const category = symToCategory(sym, type);
+    return { lat, lng, ele, name, category };
+  }).filter(w => !isNaN(w.lat) && !isNaN(w.lng) && w.name);
+
+  // GPX 이름 (메타데이터 또는 트랙명)
+  let gpxName = '';
+  try {
+    gpxName = cdataText(gpx.metadata?.[0]?.name) ||
+              cdataText(trkList[0]?.name) || '';
+  } catch (_) {}
+
   let totalDist = 0;
   segments.forEach((seg) => {
     for (let i = 1; i < seg.length; i++) totalDist += haversineDistance(seg[i - 1], seg[i]);
@@ -62,7 +104,7 @@ async function parseGpxFile(filePath) {
   const allPts = segments.flat();
   const hasEle = allPts.some(p => p.ele !== 0);
 
-  return { segments, totalDist, hasEle };
+  return { segments, totalDist, hasEle, waypoints, gpxName };
 }
 
 (async () => {
@@ -90,7 +132,7 @@ async function parseGpxFile(filePath) {
 
   for (let i = 0; i < files.length; i++) {
     const filePath = path.join(resolvedDir, files[i]);
-    const { segments, totalDist, hasEle } = await parseGpxFile(filePath);
+    const { segments, totalDist, hasEle, waypoints, gpxName } = await parseGpxFile(filePath);
 
     if (segments.length === 0) {
       console.log(`  [스킵] ${files[i]} — 유효한 포인트 없음`);
@@ -103,12 +145,15 @@ async function parseGpxFile(filePath) {
     const prefix = nameMatch ? nameMatch[1] : mountainName;
     const fileNum = nameMatch ? parseInt(nameMatch[2], 10) : i + 1;
 
-    // 같은 prefix 파일이 여러 개면 번호 포함, 하나면 번호 생략
-    const samePrefix = files.filter(f => {
-      const m = f.match(/^(.+?)_(\d+)\.gpx$/i);
-      return m && m[1] === prefix;
-    });
-    const courseName = samePrefix.length > 1 ? `${prefix} 코스 ${fileNum}` : prefix;
+    // GPX 메타데이터 이름 우선, 없으면 파일명 기반 생성
+    let courseName = gpxName;
+    if (!courseName) {
+      const samePrefix = files.filter(f => {
+        const m = f.match(/^(.+?)_(\d+)\.gpx$/i);
+        return m && m[1] === prefix;
+      });
+      courseName = samePrefix.length > 1 ? `${prefix} 코스 ${fileNum}` : prefix;
+    }
 
     const course = {
       id: courses.length + 1,
@@ -117,12 +162,16 @@ async function parseGpxFile(filePath) {
       segments,
     };
 
+    if (waypoints.length > 0) {
+      course.waypoints = waypoints;
+    }
+
     const allPts = segments.flat();
     if (hasEle) {
       const eles = allPts.map(p => p.ele);
-      console.log(`  [${course.id}] ${courseName} — ${segments.length}세그먼트, ${course.distance}km, 고도 ${Math.round(Math.min(...eles))}m~${Math.round(Math.max(...eles))}m`);
+      console.log(`  [${course.id}] ${courseName} — ${segments.length}세그먼트, ${course.distance}km, 고도 ${Math.round(Math.min(...eles))}m~${Math.round(Math.max(...eles))}m, 웨이포인트 ${waypoints.length}개`);
     } else {
-      console.log(`  [${course.id}] ${courseName} — ${segments.length}세그먼트, ${course.distance}km (고도없음)`);
+      console.log(`  [${course.id}] ${courseName} — ${segments.length}세그먼트, ${course.distance}km (고도없음), 웨이포인트 ${waypoints.length}개`);
     }
 
     courses.push(course);
